@@ -1,0 +1,17 @@
+﻿{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "checkJs": false,
+    "jsx": "react"
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "guia-backend",
+    "**/*.ts",
+    "**/*.tsx",
+    "app"
+  ]
+}
