@@ -1,50 +1,125 @@
-﻿// screens/ExploreScreen.js
-import React, { useEffect, useState } from "react";
-import { SafeAreaView, View, TextInput, FlatList, ActivityIndicator } from "react-native";
-import CityCard from "../components/CityCard";
-import axios from "axios";
-
-const GEONAMES_USERNAME = "SEU_GEONAMES_USERNAME"; // substitua
-
-async function searchCities(q) {
-  const url = `http://api.geonames.org/searchJSON?q=${encodeURIComponent(q)}&maxRows=30&username=${GEONAMES_USERNAME}&featureClass=P`;
-  const res = await axios.get(url);
-  return res.data.geonames || [];
-}
+﻿import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Keyboard,
+} from "react-native";
+import { buscarCidades } from "../services/geonames";
 
 export default function ExploreScreen({ navigation }) {
-  const [query, setQuery] = useState("Rio de Janeiro");
-  const [cities, setCities] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [cidades, setCidades] = useState([]);
+  const [carregando, setCarregando] = useState(false);
 
-  async function doSearch(q) {
-    setLoading(true);
-    try {
-      const res = await searchCities(q);
-      setCities(res);
-    } catch (e) { console.error(e); }
-    setLoading(false);
-  }
+  // buscar cidades quando o usuário parar de digitar
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      if (busca.length > 1) carregarCidades(busca);
+      else setCidades([]);
+    }, 600); // 600ms de debounce
+    return () => clearTimeout(delay);
+  }, [busca]);
 
-  useEffect(() => { doSearch(query); }, []);
+  const carregarCidades = async (query) => {
+    setCarregando(true);
+    const resultados = await buscarCidades(query);
+    setCidades(resultados);
+    setCarregando(false);
+  };
 
   return (
-    <SafeAreaView style={{ flex:1 }}>
-      <View style={{ padding:12 }}>
-        <TextInput placeholder="Pesquisar cidade ou país..." value={query} onChangeText={setQuery}
-          onSubmitEditing={() => doSearch(query)} style={{ padding:12, backgroundColor:'#fff', borderRadius:8 }} />
-      </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>🌍 Explorar Cidades</Text>
 
-      {loading ? <ActivityIndicator size="large" /> :
-        <FlatList
-          data={cities}
-          keyExtractor={(i)=>String(i.geonameId)}
-          renderItem={({item}) => (
-            <CityCard city={{name:item.name, countryName:item.countryName, population:item.population, geonameId:item.geonameId}}
-              onPress={(city) => navigation.navigate('CityDetails', { city })} />
-          )}
-        />
-      }
-    </SafeAreaView>
+      <TextInput
+        style={styles.input}
+        placeholder="Buscar cidade ou país..."
+        value={busca}
+        onChangeText={setBusca}
+        returnKeyType="search"
+        onSubmitEditing={Keyboard.dismiss}
+      />
+
+      {carregando && <ActivityIndicator size="large" color="#c7a008" />}
+
+      <FlatList
+        data={cidades}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate("CityDetails", { cidade: item })}
+          >
+            <Text style={styles.nome}>{item.nome}</Text>
+            <Text style={styles.detalhes}>
+              País: {item.pais || "—"}{"\n"}População:{" "}
+              {item.populacao?.toLocaleString("pt-BR") || "Desconhecida"}
+            </Text>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
+          !carregando && busca.length > 1 ? (
+            <Text style={styles.vazio}>Nenhuma cidade encontrada.</Text>
+          ) : null
+        }
+        contentContainerStyle={{ paddingBottom: 50 }}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f9f9f9",
+    padding: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#c7a008",
+    marginBottom: 20,
+  },
+  input: {
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  nome: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  detalhes: {
+    fontSize: 13,
+    color: "#666",
+    marginTop: 4,
+  },
+  vazio: {
+    textAlign: "center",
+    color: "#888",
+    marginTop: 20,
+  },
+});
